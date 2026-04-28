@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <title>NewLaunch Forecaster · 新盘预言家</title>
-<meta name="viewport" content="width=1320">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="styles/colors_and_type.css">
 <style>
   html, body { margin: 0; padding: 0; }
@@ -27,6 +27,7 @@
 
 <script src="src/data.js"></script>
 <script src="src/liveData.js"></script>
+
 <script type="text/babel">
 /* global React */
 const { useState, useMemo, useEffect, useRef } = React;
@@ -237,6 +238,7 @@ const Metric = ({ label, sub, value, delta, deltaTone, mono = true, size = "md" 
 Object.assign(window, { Icon, Button, Tag, Card, Bi, Avatar, Sparkline, Stub, Slider, Input, Tabs, Metric });
 
 </script>
+
 <script type="text/babel">
 /* global React, Icon, Avatar, Bi */
 const { useState: useStateSB } = React;
@@ -254,16 +256,30 @@ const BOTTOM = [
   { id: "settings", en: "Settings", zh: "设置", icon: "settings" },
 ];
 
-function Sidebar({ active, onNav, lang }) {
+function Sidebar({ active, onNav, lang, mobile, open, onClose }) {
   return (
     <aside style={{
       width: 256, flexShrink: 0, background: "var(--bg-default)",
       borderRight: "1px solid var(--border-muted)",
       display: "flex", flexDirection: "column",
-      padding: "18px 12px", gap: 2, height: "100vh", position: "sticky", top: 0,
+      padding: "18px 12px", gap: 2, height: "100vh",
+      ...(mobile ? {
+        position: "fixed", top: 0, left: 0, zIndex: 200,
+        transform: `translateX(${open ? 0 : -260}px)`,
+        transition: "transform 0.25s ease",
+        overflowY: "auto",
+      } : { position: "sticky", top: 0 }),
     }}>
       {/* Logo */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 8px 14px" }}>
+        {mobile && (
+          <button onClick={onClose} style={{
+            border: 0, background: "transparent", cursor: "pointer", color: "var(--fg-muted)",
+            display: "inline-flex", padding: 4, marginLeft: "auto", order: 99,
+          }}>
+            <i data-lucide="x" style={{ width: 18, height: 18 }} />
+          </button>
+        )}
         <div style={{
           width: 30, height: 30, borderRadius: 8, background: "var(--gray-100)",
           display: "flex", alignItems: "center", justifyContent: "center",
@@ -352,15 +368,49 @@ function NavItem({ en, zh, icon, count, active, onClick, lang }) {
 window.Sidebar = Sidebar;
 
 </script>
+
 <script type="text/babel">
 /* global React, Icon, Button, Avatar, Bi */
 
-function Topbar({ title, subtitle, zhTitle, zhSubtitle, lang, persona, onPersonaChange, onLangChange }) {
+function Topbar({ title, subtitle, zhTitle, zhSubtitle, lang, persona, onPersonaChange, onLangChange, isMobile, onMenuToggle }) {
   const personas = [
     { id: "investor", en: "Investor", zh: "投资者", icon: "trending-up" },
     { id: "upgrader", en: "HDB Upgrader", zh: "组屋升级", icon: "home" },
     { id: "firsttime", en: "First-time Buyer", zh: "首套", icon: "sparkles" },
   ];
+
+  if (isMobile) {
+    return (
+      <div style={{
+        display: "flex", alignItems: "center", gap: 12,
+        padding: "14px 16px", borderBottom: "1px solid var(--border-muted)",
+        background: "var(--bg-default)", position: "sticky", top: 0, zIndex: 10,
+      }}>
+        <button onClick={onMenuToggle} style={{
+          border: 0, background: "transparent", cursor: "pointer", color: "var(--fg-default)",
+          display: "inline-flex", padding: 4, flexShrink: 0,
+        }}>
+          <i data-lucide="menu" style={{ width: 22, height: 22 }} />
+        </button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 17, fontWeight: 700, letterSpacing: "-0.4px", lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {title}{lang === "both" && zhTitle && <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 500, color: "var(--fg-muted)" }}>{zhTitle}</span>}
+          </div>
+        </div>
+        <button onClick={() => onLangChange(lang === "en" ? "both" : "en")} style={{
+          padding: "6px 8px", display: "inline-flex", alignItems: "center", gap: 4,
+          background: "var(--bg-muted)", border: "1px solid var(--border-muted)",
+          borderRadius: 8, cursor: "pointer", color: "var(--fg-default)",
+          fontSize: 11, fontWeight: 600, fontFamily: "var(--font-sans)", flexShrink: 0,
+        }}>
+          <Icon name="languages" size={13} />
+          {lang === "en" ? "EN" : "EN·中"}
+        </button>
+        <Avatar name="Zheng Wei" size={30} online />
+      </div>
+    );
+  }
+
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: 16,
@@ -439,6 +489,7 @@ function Topbar({ title, subtitle, zhTitle, zhSubtitle, lang, persona, onPersona
 window.Topbar = Topbar;
 
 </script>
+
 <script type="text/babel">
 /* global React, Card, Tag, Bi, Icon, Button, Stub, Metric, Sparkline, PROJECTS */
 const { useMemo: useMemoDash, useState: useStateDash, useEffect: useEffectDash, useRef: useRefDash } = React;
@@ -628,7 +679,7 @@ function PredictionChart({ project, height = 240 }) {
 }
 
 // ---------- Dashboard ----------
-function Dashboard({ lang, persona, onNav, onOpenProject }) {
+function Dashboard({ lang, persona, onNav, onOpenProject, isMobile = false }) {
   const [ppi, setPpi] = useStateDash(null);
   const [headlineForecast, setHeadlineForecast] = useStateDash(null);
 
@@ -694,7 +745,7 @@ function Dashboard({ lang, persona, onNav, onOpenProject }) {
   const watching = PROJECTS.filter(p => ["parktown-residence", "pinery-residences", "bedok-rise"].includes(p.id));
 
   return (
-    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ padding: isMobile ? 12 : 24, display: "flex", flexDirection: "column", gap: isMobile ? 12 : 16 }}>
       {/* Persona briefing bar */}
       <Card pad={0} radius={16} style={{ overflow: "hidden", border: "1px solid var(--border-muted-card)" }}>
         <div style={{ display: "flex", alignItems: "stretch" }}>
@@ -720,7 +771,7 @@ function Dashboard({ lang, persona, onNav, onOpenProject }) {
       </Card>
 
       {/* KPI strip */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: isMobile ? 10 : 16 }}>
         <Card pad={18} radius={16}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
             <Metric
@@ -767,7 +818,7 @@ function Dashboard({ lang, persona, onNav, onOpenProject }) {
       </div>
 
       {/* Headline forecast — Vela Bay */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr", gap: 16 }}>
         <Card pad={22} radius={16}>
           <div style={{ display: "flex", alignItems: "flex-start", marginBottom: 16 }}>
             <div style={{ flex: 1 }}>
@@ -789,7 +840,7 @@ function Dashboard({ lang, persona, onNav, onOpenProject }) {
 
           <PredictionChart project={headline} />
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border-muted)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: 14, marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border-muted)" }}>
             <Metric label="TOP uplift (mid)" value={`+${Math.round((headline.predictedUplift[0]+headline.predictedUplift[1])/2)}%`} delta={`range ${headline.predictedUplift[0]}–${headline.predictedUplift[1]}%`} deltaTone="up" />
             <Metric label="Fair PSF range" value={`$${headline.fairPsf[0].toLocaleString()}–$${headline.fairPsf[1].toLocaleString()}`} mono={false} />
             <Metric label="Rental yield" value={`${headline.rentalYield}%`} delta={`${headline.region} benchmark`} deltaTone="up" />
@@ -821,7 +872,7 @@ function Dashboard({ lang, persona, onNav, onOpenProject }) {
       </div>
 
       {/* Watchlist + Heat map */}
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr", gap: 16 }}>
         <Card pad={22} radius={16}>
           <div style={{ display: "flex", alignItems: "center", marginBottom: 14 }}>
             <div style={{ flex: 1 }}>
@@ -833,7 +884,7 @@ function Dashboard({ lang, persona, onNav, onOpenProject }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {watching.map(p => (
               <div key={p.id} onClick={() => onOpenProject(p.id)} style={{
-                display: "grid", gridTemplateColumns: "44px 1fr 90px 120px 90px 30px", alignItems: "center", gap: 14,
+                display: "grid", gridTemplateColumns: isMobile ? "1fr 90px 80px" : "44px 1fr 90px 120px 90px 30px", alignItems: "center", gap: isMobile ? 8 : 14,
                 padding: "10px 12px", borderRadius: 10, border: "1px solid var(--border-muted)",
                 cursor: "pointer", background: "var(--bg-default)",
               }}>
@@ -906,6 +957,7 @@ window.Dashboard = Dashboard;
 window.PredictionChart = PredictionChart;
 
 </script>
+
 <script type="text/babel">
 /* global React, Card, Tag, Icon, Button, Stub, Input, PROJECTS */
 const { useState: useStateList, useMemo: useMemoList } = React;
@@ -1096,11 +1148,12 @@ function UpcomingRow({ p, lang, onOpen }) {
 window.ProjectsList = ProjectsList;
 
 </script>
+
 <script type="text/babel">
 /* global React, Card, Tag, Icon, Button, Stub, Tabs, Metric, Sparkline, PredictionChart, PROJECTS_BY_ID */
 const { useState: useStateD, useEffect: useEffectD } = React;
 
-function ProjectDetail({ projectId, lang, persona, onBack }) {
+function ProjectDetail({ projectId, lang, persona, onBack, isMobile = false }) {
   const pBase = PROJECTS_BY_ID[projectId] || PROJECTS_BY_ID["parktown-residence"];
   const [tab, setTab] = useStateD("prediction");
   const [forecast, setForecast] = useStateD(null);
@@ -1144,7 +1197,7 @@ function ProjectDetail({ projectId, lang, persona, onBack }) {
   const verdictTone = p.verdict === "outperform" ? "success" : p.verdict === "neutral" ? "warning" : "info";
 
   return (
-    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ padding: isMobile ? 12 : 24, display: "flex", flexDirection: "column", gap: isMobile ? 12 : 16 }}>
       {/* Back + hero header */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <Button intent="outlined" size="sm" icon="arrow-left" onClick={onBack}>Back</Button>
@@ -1154,7 +1207,7 @@ function ProjectDetail({ projectId, lang, persona, onBack }) {
       </div>
 
       <Card pad={0} radius={16} style={{ overflow: "hidden" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "320px 1fr", gap: 0 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "320px 1fr", gap: 0 }}>
           <Stub h={220} label="HERO · PROJECT RENDER" style={{ borderRadius: 0 }} />
           <div style={{ padding: "22px 26px", display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -1174,7 +1227,7 @@ function ProjectDetail({ projectId, lang, persona, onBack }) {
                 {p.district} · {p.developer} {lang === "both" && `· ${p.zhDeveloper}`}
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginTop: 6 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: 14, marginTop: 6 }}>
               <Metric label={p._upcoming ? "Indicative PSF" : "Launch PSF"} value={`$${p.launchPsf.toLocaleString()}`} />
               <Metric label={p._upcoming ? "Fair PSF range" : "Current avg PSF"}
                 value={p._upcoming ? `$${p.fairPsf[0].toLocaleString()}–${p.fairPsf[1].toLocaleString()}`
@@ -1199,17 +1252,17 @@ function ProjectDetail({ projectId, lang, persona, onBack }) {
         { id: "developer", label: lang === "both" ? "Developer · 开发商" : "Developer", icon: "hard-hat" },
       ]} />
 
-      {tab === "prediction" && <TabPrediction p={p} lang={lang} persona={persona} />}
-      {tab === "psf" && <TabPSF p={p} lang={lang} />}
-      {tab === "tenants" && <TabTenants p={p} lang={lang} />}
-      {tab === "developer" && <TabDeveloper p={p} lang={lang} />}
+      {tab === "prediction" && <TabPrediction p={p} lang={lang} persona={persona} isMobile={isMobile} />}
+      {tab === "psf" && <TabPSF p={p} lang={lang} isMobile={isMobile} />}
+      {tab === "tenants" && <TabTenants p={p} lang={lang} isMobile={isMobile} />}
+      {tab === "developer" && <TabDeveloper p={p} lang={lang} isMobile={isMobile} />}
     </div>
   );
 }
 
-function TabPrediction({ p, lang, persona }) {
+function TabPrediction({ p, lang, persona, isMobile = false }) {
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
+    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "2fr 1fr", gap: 16 }}>
       <Card pad={22} radius={16}>
         <div style={{ display: "flex", alignItems: "center", marginBottom: 10 }}>
           <div style={{ flex: 1 }}>
@@ -1280,7 +1333,7 @@ function TabPrediction({ p, lang, persona }) {
 
       <Card pad={22} radius={16} style={{ gridColumn: "span 2" }}>
         <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.2px", marginBottom: 12 }}>Key highlights · 关键信号</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 12 }}>
           {p.highlights?.map((h, i) => (
             <div key={i} style={{
               padding: 14, borderRadius: 10,
@@ -1297,7 +1350,7 @@ function TabPrediction({ p, lang, persona }) {
   );
 }
 
-function TabPSF({ p, lang }) {
+function TabPSF({ p, lang, isMobile = false }) {
   const [hdbRows, setHdbRows] = useStateD(null);
   const [hdbTown, setHdbTown] = useStateD(null);
   useEffectD(() => {
@@ -1311,7 +1364,7 @@ function TabPSF({ p, lang }) {
   const costBuild = 450, cost = p.landRatePsf + costBuild;
   const margin15 = cost * 1.15, margin20 = cost * 1.20;
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
       <Card pad={22} radius={16}>
         <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.2px" }}>Fair PSF build-up · 合理尺价测算</div>
         <div style={{ fontSize: 12, color: "var(--fg-muted)", marginTop: 2, marginBottom: 16 }}>Land + build + developer margin</div>
@@ -1385,7 +1438,7 @@ function TabPSF({ p, lang }) {
             ? `Recent HDB resale transactions in ${hdbTown} — public housing benchmark for the neighbourhood`
             : "Recent caveats within 800m, last 6mo"}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: 12 }}>
           {hdbRows === null ? (
             // Loading / fallback static
             [
@@ -1436,7 +1489,7 @@ function TabPSF({ p, lang }) {
   );
 }
 
-function TabTenants({ p, lang }) {
+function TabTenants({ p, lang, isMobile = false }) {
   const [rentalIdx, setRentalIdx] = useStateD(null);
   useEffectD(() => {
     const locality = window.LIVE_DATA?.rentalLocalityForProject(p);
@@ -1449,7 +1502,7 @@ function TabTenants({ p, lang }) {
     : null;
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+    <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
       <Card pad={22} radius={16}>
         <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.2px" }}>Tenant profile · 租客画像</div>
         <div style={{ fontSize: 12, color: "var(--fg-muted)", marginTop: 2, marginBottom: 14 }}>Post-TOP primary market</div>
@@ -1504,7 +1557,7 @@ function TabTenants({ p, lang }) {
 
       <Card pad={22} radius={16} style={{ gridColumn: "span 2" }}>
         <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.2px", marginBottom: 12 }}>Catchment · 学区与交通</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 12 }}>
           <div style={{ padding: 14, border: "1px solid var(--border-muted)", borderRadius: 10 }}>
             <div style={{ fontSize: 11, color: "var(--fg-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Transit · 交通</div>
             <div style={{ fontSize: 14, fontWeight: 600, marginTop: 4 }}>{p.mrtDistance}</div>
@@ -1523,7 +1576,7 @@ function TabTenants({ p, lang }) {
   );
 }
 
-function TabDeveloper({ p, lang }) {
+function TabDeveloper({ p, lang, isMobile = false }) {
   const track = [
     { name: "Riviere", year: 2022, uplift: "+12%", quality: 4.2 },
     { name: "One Holland Village", year: 2023, uplift: "+8%", quality: 3.9 },
@@ -1584,6 +1637,7 @@ function TabDeveloper({ p, lang }) {
 window.ProjectDetail = ProjectDetail;
 
 </script>
+
 <script type="text/babel">
 /* global React, Card, Icon, Button, Slider, Tag, Metric */
 const { useState: useStateC, useMemo: useMemoC } = React;
@@ -1755,6 +1809,7 @@ function CashflowChart({ rows, buildMonths }) {
 window.Calculator = Calculator;
 
 </script>
+
 <script type="text/babel">
 /* global React, Card, Stub, Icon */
 
@@ -1779,9 +1834,19 @@ function GenericScreen({ title, zhTitle, lang, description }) {
 window.GenericScreen = GenericScreen;
 
 </script>
+
 <script type="text/babel">
 /* global React, ReactDOM, Sidebar, Topbar, Dashboard, ProjectsList, ProjectDetail, Calculator, GenericScreen */
 const { useState, useEffect } = React;
+const useMobile = () => {
+  const [m, setM] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const h = () => setM(window.innerWidth < 768);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
+  return m;
+};
 
 // Tweakable defaults (persona + lang default) — persisted by host
 const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
@@ -1795,6 +1860,8 @@ function App() {
   const [persona, setPersona] = useState(TWEAK_DEFAULTS.persona);
   const [lang, setLang] = useState(TWEAK_DEFAULTS.lang);
   const [tweakOpen, setTweakOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isMobile = useMobile();
 
   // Edit-mode wiring
   useEffect(() => {
@@ -1812,7 +1879,8 @@ function App() {
   useEffect(() => { if (projectId) localStorage.setItem("nlf-project", projectId); }, [projectId]);
   useEffect(() => { if (window.lucide) window.lucide.createIcons(); });
 
-  const openProject = (id) => { setProjectId(id); setRoute("project"); };
+  const openProject = (id) => { setProjectId(id); setRoute("project"); if (isMobile) setSidebarOpen(false); };
+  const navTo = (r) => { setRoute(r); if (isMobile) setSidebarOpen(false); };
   const setPersonaPersist = (p) => {
     setPersona(p);
     window.parent.postMessage({ type: "__edit_mode_set_keys", edits: { persona: p } }, "*");
@@ -1851,7 +1919,17 @@ function App() {
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg-muted)" }}>
-      <Sidebar active={route === "project" ? "launched" : route} onNav={setRoute} lang={lang} />
+      {isMobile && sidebarOpen && (
+        <div onClick={() => setSidebarOpen(false)} style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 150,
+        }} />
+      )}
+      <Sidebar
+        active={route === "project" ? "launched" : route}
+        onNav={navTo} lang={lang}
+        mobile={isMobile} open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
       <main style={{ flex: 1, minWidth: 0 }}>
         <Topbar
           title={t.en} zhTitle={t.zh}
@@ -1859,8 +1937,10 @@ function App() {
           lang={lang} persona={persona}
           onPersonaChange={setPersonaPersist}
           onLangChange={setLangPersist}
+          isMobile={isMobile}
+          onMenuToggle={() => setSidebarOpen(o => !o)}
         />
-        {screen}
+        {React.cloneElement(screen, { isMobile })}
       </main>
 
       {tweakOpen && (
