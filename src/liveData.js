@@ -250,6 +250,7 @@ async function forecastProject(project) {
   //  day-1 sell-through: strong demand signal
   //  premiumIndex: developer charging above fair → mean-reversion drag
   //  verdict: pre-existing qualitative tilt
+  //  newTown: first-mover in a new town — Punggol/Sengkang precedent (+30–50% over 5yr as town matures)
   const demandAdj = project.day1Sold != null
     ? (project.day1Sold - 55) / 45  // +1 at 100%, 0 at 55%, -1 at 10%
     : 0;
@@ -258,8 +259,9 @@ async function forecastProject(project) {
     : 0;
   const verdictAdj = project.verdict === "outperform" ? 0.8
                    : project.verdict === "underperform" ? -0.8 : 0;
+  const newTownAdj = project.newTown ? 1.0 : 0; // +1pt CAGR for new-town maturation premium
 
-  const adjCagr = baseCagr + demandAdj + premiumAdj + verdictAdj;
+  const adjCagr = baseCagr + demandAdj + premiumAdj + verdictAdj + newTownAdj;
   const upliftMidPct = (Math.pow(1 + adjCagr / 100, horizonYears) - 1) * 100;
   // Band = ±40% of midpoint, floor of 4pt
   const half = Math.max(2, Math.abs(upliftMidPct) * 0.4);
@@ -287,12 +289,13 @@ async function forecastProject(project) {
   const yieldScore  = Math.min(100, Math.round((project.rentalYield || 3.6) / 5.5 * 100));
 
   // Weight = modifier × horizonYears (approximate %-pt delta on uplift)
-  const wDemand  = parseFloat((demandAdj  * horizonYears).toFixed(1));
-  const wPremium = parseFloat((premiumAdj * horizonYears).toFixed(1));
-  const wMrt     = parseFloat(((mrtScore - 65) / 35 * horizonYears * 0.6).toFixed(1));
-  const wSupply  = parseFloat(((supplyScore - 60) / 40 * horizonYears * -0.5).toFixed(1));
-  const wRental  = parseFloat(((yieldScore - 55) / 45 * horizonYears * 0.3).toFixed(1));
-  const wSchool  = parseFloat(((schoolScore - 50) / 50 * horizonYears * 0.25).toFixed(1));
+  const wDemand   = parseFloat((demandAdj   * horizonYears).toFixed(1));
+  const wPremium  = parseFloat((premiumAdj  * horizonYears).toFixed(1));
+  const wMrt      = parseFloat(((mrtScore - 65) / 35 * horizonYears * 0.6).toFixed(1));
+  const wSupply   = parseFloat(((supplyScore - 60) / 40 * horizonYears * -0.5).toFixed(1));
+  const wRental   = parseFloat(((yieldScore - 55) / 45 * horizonYears * 0.3).toFixed(1));
+  const wSchool   = parseFloat(((schoolScore - 50) / 50 * horizonYears * 0.25).toFixed(1));
+  const wNewTown  = parseFloat((newTownAdj * horizonYears).toFixed(1));
 
   const _fmt = n => (n >= 0 ? "+" : "") + n + "pt";
 
@@ -330,6 +333,10 @@ async function forecastProject(project) {
     ? schools.slice(0, 2).join(" · ") + (schools.length > 2 ? ` + ${schools.length - 2} more` : "")
     : "No priority schools within 1km";
 
+  const reasonNewTown = project.newTown
+    ? `First private condo in a new planned town — Punggol/Sengkang precedent shows +30–50% uplift over 5yrs as town matures with MRT, amenities and JLD spillover`
+    : null;
+
   const attribution = [
     { label: "Day-1 absorption",   v: project.day1Sold ?? 55,   cap: 100, w: _fmt(wDemand),  pos: wDemand  >= 0, reason: reasonDemand },
     { label: "Developer premium",  v: Math.min(100, pIdx * 2.5), cap: 100, w: _fmt(wPremium), pos: wPremium >= 0, reason: reasonPremium },
@@ -337,6 +344,7 @@ async function forecastProject(project) {
     { label: "Supply pipeline",    v: supplyScore, cap: 100, w: _fmt(wSupply), pos: wSupply >= 0, reason: reasonSupply },
     { label: "Rental yield",       v: yieldScore,  cap: 100, w: _fmt(wRental), pos: wRental >= 0, reason: reasonRental },
     { label: "School catchment",   v: schoolScore, cap: 100, w: _fmt(wSchool), pos: wSchool >= 0, reason: reasonSchool },
+    ...(project.newTown ? [{ label: "New-town catalyst", v: 92, cap: 100, w: _fmt(wNewTown), pos: true, reason: reasonNewTown }] : []),
   ];
 
   return {
@@ -352,7 +360,7 @@ async function forecastProject(project) {
     yieldAtTop: parseFloat(yieldAtTop.toFixed(2)),
     breakevenPsf: Math.round(cost),
     attribution,
-    method: `Trend extrapolation: ${ppiCagr != null ? ppiCagr.toFixed(1) + "%/yr PPI CAGR" : "4%/yr base"}${rentalCagr != null ? ` · ${rentalCagr.toFixed(1)}%/yr rental CAGR` : ""} over ${horizonYears.toFixed(1)} yrs to TOP, adjusted for day-1 absorption and developer premium.`,
+    method: `Trend extrapolation: ${ppiCagr != null ? ppiCagr.toFixed(1) + "%/yr PPI CAGR" : "4%/yr base"}${rentalCagr != null ? ` · ${rentalCagr.toFixed(1)}%/yr rental CAGR` : ""} over ${horizonYears.toFixed(1)} yrs to TOP, adjusted for day-1 absorption, developer premium${project.newTown ? ", and new-town maturation catalyst (+1pt CAGR)" : ""}.`,
   };
 }
 

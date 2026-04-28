@@ -3,8 +3,8 @@ const { useState: useStateSB } = React;
 
 const NAV_ITEMS = [
   { id: "dashboard", en: "Dashboard", zh: "总览", icon: "layout-dashboard" },
-  { id: "launched", en: "Launched Projects", zh: "已开盘", icon: "building-2", count: 42 },
-  { id: "upcoming", en: "Upcoming Launches", zh: "待开盘", icon: "calendar-clock", count: 18 },
+  { id: "launched", en: "Launched Projects", zh: "已开盘", icon: "building-2" },
+  { id: "upcoming", en: "Upcoming Launches", zh: "待开盘", icon: "calendar-clock" },
   { id: "watchlist", en: "Watchlist", zh: "关注", icon: "star" },
   { id: "developers", en: "Developer Track Record", zh: "开发商战绩", icon: "hard-hat" },
   { id: "calculator", en: "PPS Calculator", zh: "付款计算器", icon: "calculator" },

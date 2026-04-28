@@ -1,103 +1,186 @@
 /* global React, Card, Tag, Bi, Icon, Button, Stub, Metric, Sparkline, PROJECTS */
-const { useMemo: useMemoDash, useState: useStateDash, useEffect: useEffectDash } = React;
+const { useMemo: useMemoDash, useState: useStateDash, useEffect: useEffectDash, useRef: useRefDash } = React;
 
-// ---------- Hero prediction chart (hand-drawn SVG) ----------
-function PredictionChart({ project, height = 240, compact = false }) {
-  // Timeline: today (0), launch, TOP (mid), +5yr
-  // Values: current PSF baseline, forecast range
+// ---------- Hero prediction chart ----------
+function PredictionChart({ project, height = 240 }) {
+  const { useState: useStateChart, useRef: useRefChart, useCallback: useCallbackChart } = React;
   const W = 720, H = height;
-  const padL = 56, padR = 44, padT = 24, padB = 36;
+  const padL = 58, padR = 48, padT = 32, padB = 44;
   const iw = W - padL - padR, ih = H - padT - padB;
 
-  const base = project.launchPsf || project.avgPsf || 2300;
-  const low = project.predictedUplift?.[0] ?? 5;
-  const high = project.predictedUplift?.[1] ?? 12;
+  const base   = project.launchPsf || project.avgPsf || 2300;
+  const low    = project.predictedUplift?.[0] ?? 5;
+  const high   = project.predictedUplift?.[1] ?? 12;
 
-  // Build points: 6 time stops, each with mid/low/high
   const stops = [
-    { x: 0.00, label: "Launch", zh: "开盘", mid: base, lo: base, hi: base },
-    { x: 0.18, label: "+1yr", zh: "", mid: base * 1.02, lo: base * 1.00, hi: base * 1.04 },
-    { x: 0.38, label: "Mid-build", zh: "建设中", mid: base * 1.04, lo: base * 1.01, hi: base * 1.07 },
-    { x: 0.55, label: "TOP", zh: "交房", mid: base * (1 + (low + high) / 2 / 100 * 0.65), lo: base * (1 + low / 100 * 0.55), hi: base * (1 + high / 100 * 0.75) },
-    { x: 0.78, label: "+3yr", zh: "", mid: base * (1 + (low + high) / 2 / 100), lo: base * (1 + low / 100 * 0.85), hi: base * (1 + high / 100 * 1.05) },
-    { x: 1.00, label: "+5yr", zh: "+5年", mid: base * (1 + (high) / 100 * 1.1), lo: base * (1 + low / 100), hi: base * (1 + high / 100 * 1.3) },
+    { xf: 0.00, label: "Launch",     mid: base,                                                                   lo: base,                           hi: base },
+    { xf: 0.18, label: "+1yr",       mid: base * 1.02,                                                            lo: base * 1.00,                    hi: base * 1.04 },
+    { xf: 0.38, label: "Mid-build",  mid: base * 1.04,                                                            lo: base * 1.01,                    hi: base * 1.07 },
+    { xf: 0.55, label: "TOP",        mid: base * (1 + (low + high) / 2 / 100 * 0.65),                            lo: base * (1 + low  / 100 * 0.55), hi: base * (1 + high / 100 * 0.75) },
+    { xf: 0.78, label: "+3yr post",  mid: base * (1 + (low + high) / 2 / 100),                                   lo: base * (1 + low  / 100 * 0.85), hi: base * (1 + high / 100 * 1.05) },
+    { xf: 1.00, label: "+5yr post",  mid: base * (1 + high / 100 * 1.1),                                         lo: base * (1 + low  / 100),        hi: base * (1 + high / 100 * 1.3)  },
   ];
 
   const yMin = base * 0.94;
   const yMax = base * (1 + Math.max(high, 20) / 100 * 1.35);
-  const y = v => padT + ih - ((v - yMin) / (yMax - yMin)) * ih;
-  const x = t => padL + t * iw;
+  const yv   = v  => padT + ih - ((v  - yMin) / (yMax - yMin)) * ih;
+  const xv   = xf => padL + xf * iw;
 
-  const mkPath = (key) => stops.map((s, i) => `${i === 0 ? "M" : "L"}${x(s.x).toFixed(1)},${y(s[key]).toFixed(1)}`).join(" ");
-  const midPath = mkPath("mid");
+  // Interpolate midline PSF at arbitrary x fraction
+  const interpMid = xf => {
+    for (let i = 0; i < stops.length - 1; i++) {
+      if (xf >= stops[i].xf && xf <= stops[i + 1].xf) {
+        const t = (xf - stops[i].xf) / (stops[i + 1].xf - stops[i].xf);
+        return stops[i].mid + t * (stops[i + 1].mid - stops[i].mid);
+      }
+    }
+    return stops[stops.length - 1].mid;
+  };
+
+  // TODAY state — launched projects start ~12% in, upcoming at ~2%
+  const initFrac = project.status === "launched" ? 0.12 : 0.02;
+  const [todayFrac, setTodayFrac] = useStateChart(initFrac);
+  const [dragging,  setDragging]  = useStateChart(false);
+  const svgRef = useRefChart(null);
+
+  const fracFromEvent = useCallbackChart(e => {
+    const svg  = svgRef.current;
+    if (!svg) return null;
+    const rect  = svg.getBoundingClientRect();
+    const cx    = e.touches ? e.touches[0].clientX : e.clientX;
+    const svgX  = ((cx - rect.left) / rect.width) * W;
+    return Math.max(0, Math.min(0.95, (svgX - padL) / iw));
+  }, []);
+
+  const onPointerDown = e => { e.preventDefault(); setDragging(true); };
+  const onPointerMove = useCallbackChart(e => {
+    if (!dragging) return;
+    const f = fracFromEvent(e);
+    if (f !== null) setTodayFrac(f);
+  }, [dragging, fracFromEvent]);
+  const onPointerUp = () => setDragging(false);
+
+  const mkPath = key => stops.map((s, i) =>
+    `${i === 0 ? "M" : "L"}${xv(s.xf).toFixed(1)},${yv(s[key]).toFixed(1)}`).join(" ");
   const bandPath =
-    `M${x(stops[0].x)},${y(stops[0].hi)} ` +
-    stops.slice(1).map(s => `L${x(s.x)},${y(s.hi)}`).join(" ") +
-    " " +
-    stops.slice().reverse().map(s => `L${x(s.x)},${y(s.lo)}`).join(" ") + " Z";
+    `M${xv(stops[0].xf)},${yv(stops[0].hi)} ` +
+    stops.slice(1).map(s => `L${xv(s.xf)},${yv(s.hi)}`).join(" ") + " " +
+    stops.slice().reverse().map(s => `L${xv(s.xf)},${yv(s.lo)}`).join(" ") + " Z";
 
-  // Y axis gridlines (4)
-  const yTicks = 4;
-  const grid = Array.from({ length: yTicks + 1 }, (_, i) => yMin + (yMax - yMin) * (i / yTicks));
+  const yTicks  = 4;
+  const grid    = Array.from({ length: yTicks + 1 }, (_, i) => yMin + (yMax - yMin) * (i / yTicks));
 
-  const verdictColor = project.verdict === "outperform" ? "#2B873F" :
-                       project.verdict === "neutral" ? "#C85D00" :
-                       project.verdict === "underperform" ? "#C32B2B" : "#2B873F";
-  const bandFill = project.verdict === "outperform" ? "rgba(112,252,142,0.18)" :
-                   project.verdict === "neutral" ? "rgba(255,144,46,0.14)" :
-                   project.verdict === "underperform" ? "rgba(255,82,82,0.14)" : "rgba(112,252,142,0.18)";
+  const vc = project.verdict === "outperform" ? "#2B873F"
+           : project.verdict === "neutral"    ? "#C85D00"
+           : project.verdict === "underperform" ? "#C32B2B" : "#2B873F";
+  const bf = project.verdict === "outperform"   ? "rgba(112,252,142,0.18)"
+           : project.verdict === "neutral"       ? "rgba(255,144,46,0.14)"
+           : project.verdict === "underperform"  ? "rgba(255,82,82,0.14)"  : "rgba(112,252,142,0.18)";
+
+  // TODAY derived values
+  const todayPsf  = interpMid(todayFrac);
+  const todayPct  = ((todayPsf / base - 1) * 100);
+  const todayPctStr = (todayPct >= 0 ? "+" : "") + todayPct.toFixed(1) + "%";
+  const txToday   = xv(todayFrac);
+  const tyToday   = yv(todayPsf);
+
+  // % badge helpers: avoid overlapping the TOP marker label
+  const pctLabel = (s, i) => {
+    const pct = ((s.mid / base - 1) * 100);
+    if (i === 0) return null; // launch = 0%, skip
+    const str = (pct >= 0 ? "+" : "") + pct.toFixed(0) + "%";
+    return str;
+  };
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} style={{ width: "100%", height: "auto", display: "block" }}>
+    <svg
+      ref={svgRef}
+      viewBox={`0 0 ${W} ${H}`}
+      style={{ width: "100%", height: "auto", display: "block", userSelect: "none", touchAction: "none" }}
+      onMouseMove={onPointerMove} onTouchMove={onPointerMove}
+      onMouseUp={onPointerUp}    onTouchEnd={onPointerUp}
+      onMouseLeave={onPointerUp}
+    >
       {/* gridlines */}
       {grid.map((v, i) => (
         <g key={i}>
-          <line x1={padL} x2={W - padR} y1={y(v)} y2={y(v)}
+          <line x1={padL} x2={W - padR} y1={yv(v)} y2={yv(v)}
             stroke="var(--gray-20)" strokeDasharray={i === 0 || i === yTicks ? "0" : "3 4"} />
-          <text x={padL - 8} y={y(v) + 3} textAnchor="end"
+          <text x={padL - 6} y={yv(v) + 3} textAnchor="end"
             fontSize="10" fill="var(--fg-muted)" fontFamily="var(--font-mono)">
             ${Math.round(v).toLocaleString()}
           </text>
         </g>
       ))}
 
-      {/* today marker (between launch and +1yr for launched projects) */}
-      <line x1={x(0.10)} x2={x(0.10)} y1={padT} y2={padT + ih}
-        stroke="var(--gray-60)" strokeDasharray="4 4" strokeWidth="1" />
-      <rect x={x(0.10) - 22} y={padT - 16} width="44" height="16" rx="8" fill="var(--gray-100)" />
-      <text x={x(0.10)} y={padT - 4} textAnchor="middle" fontSize="9" fill="#fff" fontWeight="700" letterSpacing="0.04em">TODAY</text>
+      {/* TOP vertical marker — label INSIDE chart above line */}
+      <line x1={xv(0.55)} x2={xv(0.55)} y1={padT} y2={padT + ih}
+        stroke={vc} strokeDasharray="2 3" strokeWidth="1.5" opacity="0.5" />
+      <rect x={xv(0.55) + 4} y={padT + 4} width="30" height="16" rx="4" fill={vc} />
+      <text x={xv(0.55) + 19} y={padT + 15} textAnchor="middle" fontSize="9" fill="#fff" fontWeight="700">TOP</text>
 
-      {/* TOP marker */}
-      <line x1={x(0.55)} x2={x(0.55)} y1={padT} y2={padT + ih}
-        stroke={verdictColor} strokeDasharray="2 3" strokeWidth="1.5" opacity="0.6" />
-      <rect x={x(0.55) - 18} y={padT + ih + 8} width="36" height="16" rx="4" fill={verdictColor} />
-      <text x={x(0.55)} y={padT + ih + 19} textAnchor="middle" fontSize="9" fill="#fff" fontWeight="700">TOP</text>
+      {/* confidence band + lines */}
+      <path d={bandPath} fill={bf} />
+      <path d={mkPath("lo")} fill="none" stroke={vc} strokeWidth="1" strokeDasharray="2 3" opacity="0.5" />
+      <path d={mkPath("hi")} fill="none" stroke={vc} strokeWidth="1" strokeDasharray="2 3" opacity="0.5" />
+      <path d={mkPath("mid")} fill="none" stroke={vc} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
 
-      {/* confidence band */}
-      <path d={bandPath} fill={bandFill} />
+      {/* Stop dots + x-axis labels + % badges */}
+      {stops.map((s, i) => {
+        const cx   = xv(s.xf);
+        const cy   = yv(s.mid);
+        const pct  = pctLabel(s, i);
+        // nudge % badge left on last stop to stay inside
+        const badgeX = i === stops.length - 1 ? cx - 28 : cx - 14;
+        return (
+          <g key={i}>
+            {/* x-axis label */}
+            <text x={cx} y={H - 6} textAnchor="middle" fontSize="10" fill="var(--fg-muted)" fontWeight="600">{s.label}</text>
+            {/* dot */}
+            <circle cx={cx} cy={cy} r={i === 3 ? 5 : 3} fill="var(--bg-default)" stroke={vc} strokeWidth="2" />
+            {/* % badge above dot (skip launch=0%) */}
+            {pct && (
+              <g>
+                <rect x={badgeX} y={cy - 22} width="28" height="16" rx="4" fill={vc} opacity="0.9" />
+                <text x={badgeX + 14} y={cy - 10} textAnchor="middle" fontSize="9" fill="#fff" fontWeight="700" fontFamily="var(--font-mono)">{pct}</text>
+              </g>
+            )}
+          </g>
+        );
+      })}
 
-      {/* low/high dashed lines */}
-      <path d={mkPath("lo")} fill="none" stroke={verdictColor} strokeWidth="1" strokeDasharray="2 3" opacity="0.55" />
-      <path d={mkPath("hi")} fill="none" stroke={verdictColor} strokeWidth="1" strokeDasharray="2 3" opacity="0.55" />
+      {/* Draggable TODAY line */}
+      <line x1={txToday} x2={txToday} y1={padT} y2={padT + ih}
+        stroke="var(--gray-70)" strokeDasharray="4 4" strokeWidth="1.5" />
 
-      {/* mid line */}
-      <path d={midPath} fill="none" stroke={verdictColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      {/* TODAY % badge — shown above drag handle */}
+      {todayPct !== 0 && (() => {
+        const bw = 42, bh = 18;
+        const bx = Math.min(W - padR - bw - 2, Math.max(padL, txToday - bw / 2));
+        return (
+          <g>
+            <rect x={bx} y={padT + ih - 36} width={bw} height={bh} rx="4" fill="var(--gray-100)" />
+            <text x={bx + bw / 2} y={padT + ih - 23} textAnchor="middle" fontSize="10" fill="#fff" fontWeight="700" fontFamily="var(--font-mono)">{todayPctStr}</text>
+          </g>
+        );
+      })()}
 
-      {/* stop dots */}
-      {stops.map((s, i) => (
-        <g key={i}>
-          <circle cx={x(s.x)} cy={y(s.mid)} r={i === 3 ? 5 : 3} fill="var(--bg-default)" stroke={verdictColor} strokeWidth="2" />
-          <text x={x(s.x)} y={H - 12} textAnchor="middle" fontSize="10" fill="var(--fg-muted)" fontWeight="600">{s.label}</text>
-        </g>
-      ))}
+      {/* Drag handle (invisible wide hit area + visible diamond) */}
+      <rect
+        x={txToday - 12} y={padT + ih - 14} width="24" height="24"
+        fill="transparent" rx="4"
+        style={{ cursor: dragging ? "grabbing" : "ew-resize" }}
+        onMouseDown={onPointerDown} onTouchStart={onPointerDown}
+      />
+      <polygon
+        points={`${txToday},${padT + ih - 6} ${txToday + 7},${padT + ih + 2} ${txToday},${padT + ih + 10} ${txToday - 7},${padT + ih + 2}`}
+        fill="var(--gray-100)" stroke="#fff" strokeWidth="1.5"
+        style={{ cursor: dragging ? "grabbing" : "ew-resize" }}
+        onMouseDown={onPointerDown} onTouchStart={onPointerDown}
+      />
 
-      {/* end label */}
-      <g>
-        <rect x={x(1) - 56} y={y(stops[5].mid) - 26} width="56" height="20" rx="4" fill={verdictColor} />
-        <text x={x(1) - 28} y={y(stops[5].mid) - 12} textAnchor="middle" fontSize="11" fill="#fff" fontWeight="700" fontFamily="var(--font-mono)">
-          +{((stops[5].mid / base - 1) * 100).toFixed(0)}%
-        </text>
-      </g>
+      {/* TODAY dot on midline */}
+      <circle cx={txToday} cy={tyToday} r="5" fill="#fff" stroke="var(--gray-80)" strokeWidth="2" />
     </svg>
   );
 }
