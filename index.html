@@ -100,6 +100,15 @@
 
 
 
+
+
+
+
+
+
+
+
+
 <script type="text/babel">
 /* global React */
 const { useState, useMemo, useEffect, useRef } = React;
@@ -1950,21 +1959,23 @@ function Calculator({ lang, isMobile = false }) {
               })}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", border: "1px solid var(--border-muted-input)", borderRadius: 8, background: "var(--bg-muted)" }}>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 11, color: "var(--fg-muted)", fontWeight: 600, flexShrink: 0 }}>{soraType === "1m" ? "1M" : "3M"} SORA</span>
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={soraInput}
-                  onChange={e => setSoraInput(e.target.value.replace(/[^0-9.]/g, ""))}
-                  style={{
-                    width: 48, border: 0, background: "transparent", fontSize: 14,
-                    fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--fg-default)",
-                    outline: "none", textAlign: "right",
-                  }}
-                />
-                <span style={{ fontSize: 13, color: "var(--fg-muted)", fontWeight: 600 }}>%</span>
-                <span style={{ fontSize: 11, color: "var(--fg-muted)", marginLeft: 2 }}>+ 0.2% spread</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, padding: "8px 10px", border: "1px solid var(--border-muted-input)", borderRadius: 8, background: "var(--bg-default)" }}>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={soraInput}
+                    onChange={e => setSoraInput(e.target.value.replace(/[^0-9.]/g, ""))}
+                    style={{
+                      flex: 1, border: 0, background: "transparent", fontSize: 16,
+                      fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--fg-default)",
+                      outline: "none", minWidth: 0,
+                    }}
+                  />
+                  <span style={{ fontSize: 13, color: "var(--fg-muted)", fontWeight: 600, flexShrink: 0 }}>%</span>
+                </div>
+                <span style={{ fontSize: 11, color: "var(--fg-muted)", flexShrink: 0 }}>+ 0.2%</span>
               </div>
               <div style={{ padding: "8px 12px", background: "var(--gray-100)", borderRadius: 8, flexShrink: 0, textAlign: "center" }}>
                 <div style={{ fontSize: 9, color: "var(--gray-40)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Effective</div>
