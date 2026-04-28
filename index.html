@@ -37,6 +37,69 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 <script type="text/babel">
 /* global React */
 const { useState, useMemo, useEffect, useRef } = React;
@@ -755,30 +818,6 @@ function Dashboard({ lang, persona, onNav, onOpenProject, isMobile = false }) {
 
   return (
     <div style={{ padding: isMobile ? 12 : 24, display: "flex", flexDirection: "column", gap: isMobile ? 12 : 16 }}>
-      {/* Persona briefing bar */}
-      <Card pad={0} radius={16} style={{ overflow: "hidden", border: "1px solid var(--border-muted-card)" }}>
-        <div style={{ display: "flex", alignItems: "stretch" }}>
-          <div style={{ flex: 1, padding: "18px 22px", display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", color: "var(--fg-muted)", textTransform: "uppercase" }}>
-              Tuned for {persona === "investor" ? "Investor" : persona === "upgrader" ? "HDB Upgrader" : "First-time Buyer"}
-              {lang === "both" && <span style={{ marginLeft: 6, color: "var(--fg-muted)" }}>· 个性化视图</span>}
-            </div>
-            <div style={{ fontSize: 18, fontWeight: 600, color: "var(--fg-default)", letterSpacing: "-0.3px", lineHeight: 1.3 }}>
-              {personaCopy.en}
-            </div>
-            {lang === "both" && (
-              <div style={{ fontSize: 13, color: "var(--fg-muted)" }}>{personaCopy.zh}</div>
-            )}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", padding: "0 22px", gap: 12, background: "var(--gray-10)", borderLeft: "1px solid var(--border-muted)" }}>
-            <Icon name="info" size={16} color="var(--fg-muted)" />
-            <div style={{ fontSize: 12, color: "var(--fg-muted)", maxWidth: 220, lineHeight: 1.4 }}>
-              Change persona from the top bar — dashboard reweights metrics live.
-            </div>
-          </div>
-        </div>
-      </Card>
-
       {/* KPI strip */}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)", gap: isMobile ? 10 : 16 }}>
         <Card pad={18} radius={16}>
@@ -865,14 +904,14 @@ function Dashboard({ lang, persona, onNav, onOpenProject, isMobile = false }) {
           <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.3px", lineHeight: 1.3, color: "#fff" }}>
             Why this matters for you
           </div>
-          <div style={{ fontSize: 12, color: "var(--gray-30)", lineHeight: 1.55 }}>
+          <div style={{ fontSize: 16, color: "var(--gray-30)", lineHeight: 1.55 }}>
             {persona === "investor" && `${headline.name} sold ${headline.day1Sold}% on day 1 at $${headline.launchPsf.toLocaleString()} PSF — integrated Tampines North CRL station (2030) plus thin Tampines new-launch pipeline supports the ${headline.predictedUplift[0]}–${headline.predictedUplift[1]}% TOP uplift range.`}
             {persona === "upgrader" && `${headline.name} 3BR at ~$${(headline.unitMix.find(u=>u.type==="3BR")?.psf||headline.launchPsf).toLocaleString()} PSF with on-site hawker, retail and bus interchange — Poi Ching School within 1km, CRL at your doorstep from 2030.`}
             {persona === "firsttime" && "Fair PSF means what a project should cost, based on land cost + build + normal developer margin. When launch PSF is close to the low end, you're getting a deal."}
           </div>
-          <div style={{ marginTop: "auto", padding: "10px 12px", background: "var(--gray-95)", borderRadius: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontSize: 11, color: "var(--gray-40)" }}>Est. 3-yr IRR{headlineForecast ? "" : " (static)"}</span>
-            <span style={{ fontSize: 15, color: "#70FC8E", fontWeight: 700, fontFamily: "var(--font-mono)" }}>{irrEst}%</span>
+          <div style={{ marginTop: "auto", padding: "14px 16px", background: "var(--gray-95)", borderRadius: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 14, color: "var(--gray-40)", fontWeight: 500 }}>Est. 3-yr IRR{headlineForecast ? "" : " (static)"}</span>
+            <span style={{ fontSize: 28, color: "#70FC8E", fontWeight: 700, fontFamily: "var(--font-mono)", letterSpacing: "-0.5px" }}>{irrEst}%</span>
           </div>
           <Button intent="brand" size="sm" style={{ justifyContent: "center" }} onClick={() => onOpenProject(headline.id)}>
             See full analysis
@@ -1756,122 +1795,303 @@ window.ProjectDetail = ProjectDetail;
 /* global React, Card, Icon, Button, Slider, Tag, Metric */
 const { useState: useStateC, useMemo: useMemoC } = React;
 
-function Calculator({ lang }) {
+const STAGE_GROUPS = [
+  { label: "Early Payments", zh: "前期付款", color: "#3765F6", bg: "rgba(55,101,246,0.08)", indices: [0, 1] },
+  { label: "Construction Milestones", zh: "建设阶段", color: "#C85D00", bg: "rgba(200,93,0,0.08)", indices: [2, 3, 4, 5, 6, 7] },
+  { label: "TOP", zh: "交房", color: "#2B873F", bg: "rgba(43,135,63,0.08)", indices: [8] },
+  { label: "CSC", zh: "入伙", color: "var(--gray-60)", bg: "var(--gray-10)", indices: [9] },
+];
+
+function CurrencyInput({ value, onChange, placeholder }) {
+  const [raw, setRaw] = useStateC(value ? Number(value).toLocaleString() : "");
+  const [focused, setFocused] = useStateC(false);
+
+  const handleChange = e => {
+    const digits = e.target.value.replace(/[^0-9]/g, "");
+    setRaw(digits);
+    onChange(parseFloat(digits) || 0);
+  };
+  const handleFocus = e => {
+    setFocused(true);
+    const digits = e.target.value.replace(/[^0-9,]/g, "").replace(/,/g, "");
+    setRaw(digits);
+    e.target.select();
+  };
+  const handleBlur = e => {
+    setFocused(false);
+    const n = parseFloat(raw.replace(/,/g, "")) || 0;
+    setRaw(n > 0 ? n.toLocaleString() : "");
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      <span style={{ fontSize: 13, color: "var(--fg-muted)", fontWeight: 600, flexShrink: 0 }}>$</span>
+      <input
+        type="text"
+        inputMode="numeric"
+        value={raw}
+        onChange={handleChange}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        placeholder={placeholder}
+        style={{
+          flex: 1, padding: "9px 12px", border: "1px solid var(--border-muted-input)",
+          borderRadius: 8, fontSize: 14, fontFamily: "var(--font-mono)",
+          fontWeight: 600, background: "var(--bg-muted)", color: "var(--fg-default)",
+          outline: "none", width: "100%", boxSizing: "border-box",
+        }}
+      />
+    </div>
+  );
+}
+
+const SORA_SPREAD = 0.2; // bank spread fixed at +0.2%
+
+function Calculator({ lang, isMobile = false }) {
   const [price, setPrice] = useStateC(2400000);
+  const [cpf, setCpf] = useStateC(0);
   const [loanPct, setLoanPct] = useStateC(75);
-  const [rate, setRate] = useStateC(3.5);
+  const [soraType, setSoraType] = useStateC("1m");   // "1m" | "3m"
+  const [soraInput, setSoraInput] = useStateC("1.30"); // current SORA rate %
   const [tenure, setTenure] = useStateC(30);
   const [buildMonths, setBuildMonths] = useStateC(42);
+
+  const soraRate = Math.max(0, parseFloat(soraInput) || 0);
+  const rate = soraRate + SORA_SPREAD; // effective rate = SORA + spread
 
   const loan = price * (loanPct / 100);
   const down = price - loan;
   const monthly = (loan * (rate / 100 / 12)) / (1 - Math.pow(1 + rate / 100 / 12, -tenure * 12));
 
-  // Progressive Payment Scheme (typical SG milestones, % of price)
   const pps = [
-    { pct: 5, name: "Booking fee · 订金", at: 0 },
-    { pct: 15, name: "Sale & Purchase · S&P", at: 2 },
-    { pct: 10, name: "Foundation · 地基", at: Math.round(buildMonths * 0.2) },
-    { pct: 10, name: "Reinforced concrete · 钢筋混凝土", at: Math.round(buildMonths * 0.35) },
-    { pct: 5, name: "Brick walls · 砖墙", at: Math.round(buildMonths * 0.5) },
-    { pct: 5, name: "Roofing · 封顶", at: Math.round(buildMonths * 0.6) },
-    { pct: 5, name: "Finishes · 装修", at: Math.round(buildMonths * 0.72) },
-    { pct: 5, name: "Car park & drainage · 车库排水", at: Math.round(buildMonths * 0.82) },
-    { pct: 25, name: "TOP · 交房", at: buildMonths },
-    { pct: 15, name: "CSC · 入伙", at: buildMonths + 12 },
+    { pct: 5,  name: "Booking fee",         zh: "订金",       at: 0 },
+    { pct: 15, name: "Sale & Purchase",      zh: "S&P",        at: 2 },
+    { pct: 10, name: "Foundation",           zh: "地基",       at: Math.round(buildMonths * 0.2) },
+    { pct: 10, name: "Reinforced concrete",  zh: "钢筋混凝土", at: Math.round(buildMonths * 0.35) },
+    { pct: 5,  name: "Brick walls",          zh: "砖墙",       at: Math.round(buildMonths * 0.5) },
+    { pct: 5,  name: "Roofing",              zh: "封顶",       at: Math.round(buildMonths * 0.6) },
+    { pct: 5,  name: "Finishes",             zh: "装修",       at: Math.round(buildMonths * 0.72) },
+    { pct: 5,  name: "Car park & drainage",  zh: "车库排水",   at: Math.round(buildMonths * 0.82) },
+    { pct: 25, name: "TOP",                  zh: "交房",       at: buildMonths },
+    { pct: 15, name: "CSC",                  zh: "入伙",       at: buildMonths + 12 },
   ];
+
+  // CPF: booking fee (5%) must always be cash; remaining downpayment can use CPF
+  let cpfRemaining = cpf;
   let cumLoan = 0;
   const rows = pps.map((s, i) => {
     const amount = price * (s.pct / 100);
-    // Down payment covers first 25% (5% + 20% typically), remainder is loan-drawn
     const downRemaining = Math.max(0, down - price * pps.slice(0, i).reduce((a, b) => a + b.pct, 0) / 100);
     const downUsed = Math.min(amount, downRemaining);
     const loanDrawn = amount - downUsed;
     cumLoan += loanDrawn;
-    // rough interest-only while building
     const interestOnly = (cumLoan * rate / 100) / 12;
-    return { ...s, amount, downUsed, loanDrawn, cumLoan, interestOnly };
+    const cpfUsed = i === 0 ? 0 : Math.min(cpfRemaining, downUsed);
+    cpfRemaining -= cpfUsed;
+    const cashDown = downUsed - cpfUsed;
+    return { ...s, amount, downUsed, loanDrawn, cumLoan, interestOnly, cpfUsed, cashDown };
   });
 
+  // Total to TOP breakdown
+  const topRows = rows.filter(r => r.at <= buildMonths);
+  const totalCashDown = topRows.reduce((s, r) => s + r.cashDown, 0);
+  const totalCpfUsed = topRows.reduce((s, r) => s + r.cpfUsed, 0);
+  const estInterestBuild = topRows.reduce((s, r) => s + r.interestOnly, 0) / topRows.length * buildMonths;
+  const cashToTOP = totalCashDown + estInterestBuild;
+  const cpfToTOP = totalCpfUsed;
+  const totalToTOP = cashToTOP + cpfToTOP;
+
+  const pad = isMobile ? 12 : 24;
+
   return (
-    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ padding: pad, display: "flex", flexDirection: "column", gap: isMobile ? 12 : 16 }}>
+      {/* Header */}
       <Card pad={0} radius={16} style={{ background: "var(--gray-100)", color: "#fff", overflow: "hidden" }}>
-        <div style={{ padding: "22px 26px", display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ padding: isMobile ? "16px 18px" : "22px 26px", display: "flex", alignItems: "center", gap: 12 }}>
           <Icon name="calculator" size={20} color="#70FC8E" />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.3px" }}>Progressive Payment Simulator</div>
-            <div style={{ fontSize: 12, color: "var(--gray-40)", marginTop: 2 }}>期房阶段性付款计算器 · Model your cash-flow from booking to CSC</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: isMobile ? 15 : 18, fontWeight: 700, letterSpacing: "-0.3px" }}>Progressive Payment Simulator</div>
+            <div style={{ fontSize: 11, color: "var(--gray-40)", marginTop: 2 }}>期房阶段性付款计算器 · Model your cash-flow from booking to CSC</div>
           </div>
           <Tag tone="brand">Live · 实时</Tag>
         </div>
       </Card>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: 16 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1.5fr", gap: isMobile ? 12 : 16 }}>
         {/* Inputs */}
-        <Card pad={22} radius={16}>
+        <Card pad={isMobile ? 16 : 22} radius={16}>
           <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.2px", marginBottom: 14 }}>Inputs · 参数</div>
-          <Field label="Purchase price · 购房总价" zh>
-            <Slider value={price} onChange={setPrice} min={800000} max={5000000} step={50000} format={v => `$${(v/1000).toLocaleString()}k`} />
+
+          <Field label="Purchase price · 购房总价">
+            <CurrencyInput value={price} onChange={setPrice} placeholder="e.g. 2400000" />
           </Field>
-          <Field label="Loan-to-value · 贷款成数" zh>
+          <Field label="CPF available · 公积金可用额">
+            <CurrencyInput value={cpf} onChange={setCpf} placeholder="0 if not applicable" />
+          </Field>
+          <Field label="Loan-to-value · 贷款成数">
             <Slider value={loanPct} onChange={setLoanPct} min={25} max={75} step={5} format={v => `${v}%`} />
           </Field>
-          <Field label="Interest rate · 年利率" zh>
-            <Slider value={rate} onChange={setRate} min={1.5} max={6} step={0.1} format={v => `${v.toFixed(1)}%`} />
+          <Field label="Interest rate · 贷款利率 (SORA + 0.2%)">
+            {/* SORA type toggle */}
+            <div style={{ display: "inline-flex", padding: 3, borderRadius: 8, gap: 2, border: "1px solid var(--border-muted)", background: "var(--bg-muted)", marginBottom: 8 }}>
+              {["1m", "3m"].map(t => {
+                const active = soraType === t;
+                return (
+                  <button key={t} onClick={() => setSoraType(t)} style={{
+                    padding: "5px 12px", border: 0, borderRadius: 6,
+                    background: active ? "var(--gray-100)" : "transparent",
+                    color: active ? "#fff" : "var(--fg-muted)",
+                    fontSize: 12, fontWeight: 700, cursor: "pointer",
+                    fontFamily: "var(--font-sans)", letterSpacing: "0.02em",
+                  }}>
+                    {t === "1m" ? "1M SORA" : "3M SORA"}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", border: "1px solid var(--border-muted-input)", borderRadius: 8, background: "var(--bg-muted)" }}>
+                <span style={{ fontSize: 11, color: "var(--fg-muted)", fontWeight: 600, flexShrink: 0 }}>{soraType === "1m" ? "1M" : "3M"} SORA</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={soraInput}
+                  onChange={e => setSoraInput(e.target.value.replace(/[^0-9.]/g, ""))}
+                  style={{
+                    width: 48, border: 0, background: "transparent", fontSize: 14,
+                    fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--fg-default)",
+                    outline: "none", textAlign: "right",
+                  }}
+                />
+                <span style={{ fontSize: 13, color: "var(--fg-muted)", fontWeight: 600 }}>%</span>
+                <span style={{ fontSize: 11, color: "var(--fg-muted)", marginLeft: 2 }}>+ 0.2% spread</span>
+              </div>
+              <div style={{ padding: "8px 12px", background: "var(--gray-100)", borderRadius: 8, flexShrink: 0, textAlign: "center" }}>
+                <div style={{ fontSize: 9, color: "var(--gray-40)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>Effective</div>
+                <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "var(--font-mono)", color: "#70FC8E" }}>{rate.toFixed(2)}%</div>
+              </div>
+            </div>
+            <div style={{ fontSize: 10, color: "var(--fg-muted)", marginTop: 6 }}>
+              SORA fluctuates daily — Mar 2025 was ~1.30%. All interest figures are estimates.
+            </div>
           </Field>
-          <Field label="Loan tenure · 贷款年限" zh>
+          <Field label="Loan tenure · 贷款年限">
             <Slider value={tenure} onChange={setTenure} min={10} max={35} step={1} format={v => `${v} yrs`} />
           </Field>
-          <Field label="Build duration · 建设周期" zh>
+          <Field label="Build duration · 建设周期">
             <Slider value={buildMonths} onChange={setBuildMonths} min={30} max={60} step={3} format={v => `${v} mo`} />
           </Field>
 
-          <div style={{ marginTop: 18, padding: 14, background: "var(--gray-10)", borderRadius: 10, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
+          <div style={{ marginTop: 16, padding: isMobile ? 12 : 14, background: "var(--gray-10)", borderRadius: 10, display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
             <Metric label="Downpayment" value={`$${Math.round(down).toLocaleString()}`} mono />
             <Metric label="Loan amount" value={`$${Math.round(loan).toLocaleString()}`} mono />
             <Metric label="Monthly (post-TOP)" value={`$${Math.round(monthly).toLocaleString()}`} mono />
             <Metric label="Total interest" value={`$${Math.round(monthly*tenure*12-loan).toLocaleString()}`} mono />
           </div>
-        </Card>
 
-        {/* Stages + chart */}
-        <Card pad={22} radius={16}>
-          <div style={{ display: "flex", alignItems: "center", marginBottom: 14 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.2px" }}>PPS Stages · 阶段性付款</div>
-              <div style={{ fontSize: 12, color: "var(--fg-muted)", marginTop: 2 }}>Milestones as % of price · cumulative cash-flow</div>
+          {/* Total paid by TOP — with CPF breakdown */}
+          <div style={{ marginTop: 10, padding: isMobile ? 12 : 14, background: "var(--gray-100)", borderRadius: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--gray-40)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Est. total paid by TOP · 预计交房前总支出</div>
+                <div style={{ fontSize: 11, color: "var(--gray-50)", marginTop: 2 }}>Cash + CPF + est. interest @ {soraType === "1m" ? "1M" : "3M"} SORA {soraRate.toFixed(2)}% + 0.2%</div>
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "var(--font-mono)", color: "#70FC8E", letterSpacing: "-0.5px", flexShrink: 0, marginLeft: 12 }}>
+                ${Math.round(totalToTOP).toLocaleString()}
+              </div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, paddingTop: 10, borderTop: "1px solid var(--gray-90)" }}>
+              <div style={{ padding: "8px 10px", background: "var(--gray-95)", borderRadius: 8 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: "var(--gray-50)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Cash out-of-pocket</div>
+                <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "var(--font-mono)", color: "#fff" }}>${Math.round(cashToTOP).toLocaleString()}</div>
+                <div style={{ fontSize: 10, color: "var(--gray-50)", marginTop: 2 }}>incl. interest during build</div>
+              </div>
+              <div style={{ padding: "8px 10px", background: "var(--gray-95)", borderRadius: 8 }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: "var(--gray-50)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>CPF used · 公积金</div>
+                <div style={{ fontSize: 15, fontWeight: 700, fontFamily: "var(--font-mono)", color: cpfToTOP > 0 ? "#70FC8E" : "var(--gray-60)" }}>${Math.round(cpfToTOP).toLocaleString()}</div>
+                <div style={{ fontSize: 10, color: "var(--gray-50)", marginTop: 2 }}>excl. 5% booking (cash only)</div>
+              </div>
             </div>
           </div>
+        </Card>
 
-          {/* Milestone chart */}
+        {/* Stages */}
+        <Card pad={isMobile ? 16 : 22} radius={16}>
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.2px" }}>PPS Stages · 阶段性付款</div>
+            <div style={{ fontSize: 12, color: "var(--fg-muted)", marginTop: 2 }}>Milestones grouped by phase · cumulative cash-flow</div>
+          </div>
+
           <CashflowChart rows={rows} buildMonths={buildMonths} />
 
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, marginTop: 16 }}>
-            <thead>
-              <tr style={{ textAlign: "left", color: "var(--fg-muted)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                <th style={{ padding: "6px 0" }}>Milestone</th>
-                <th style={{ padding: "6px 0", textAlign: "right" }}>At</th>
-                <th style={{ padding: "6px 0", textAlign: "right" }}>%</th>
-                <th style={{ padding: "6px 0", textAlign: "right" }}>Amount</th>
-                <th style={{ padding: "6px 0", textAlign: "right" }}>Cash</th>
-                <th style={{ padding: "6px 0", textAlign: "right" }}>Loan drawn</th>
-                <th style={{ padding: "6px 0", textAlign: "right" }}>Interest/mo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={i} style={{ borderTop: "1px solid var(--border-muted)" }}>
-                  <td style={{ padding: "8px 0", fontWeight: 600 }}>{r.name}</td>
-                  <td style={{ padding: "8px 0", textAlign: "right", color: "var(--fg-muted)", fontFamily: "var(--font-mono)" }}>{r.at === 0 ? "T0" : `+${r.at}m`}</td>
-                  <td style={{ padding: "8px 0", textAlign: "right", fontFamily: "var(--font-mono)" }}>{r.pct}%</td>
-                  <td style={{ padding: "8px 0", textAlign: "right", fontFamily: "var(--font-mono)", fontWeight: 600 }}>${Math.round(r.amount).toLocaleString()}</td>
-                  <td style={{ padding: "8px 0", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--fg-muted)" }}>${Math.round(r.downUsed).toLocaleString()}</td>
-                  <td style={{ padding: "8px 0", textAlign: "right", fontFamily: "var(--font-mono)", color: "var(--fg-muted)" }}>${Math.round(r.loanDrawn).toLocaleString()}</td>
-                  <td style={{ padding: "8px 0", textAlign: "right", fontFamily: "var(--font-mono)", color: "#C85D00" }}>${Math.round(r.interestOnly).toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 16 }}>
+            {STAGE_GROUPS.map(group => {
+              const gRows = group.indices.map(i => rows[i]);
+              const totalAmt = gRows.reduce((s, r) => s + r.amount, 0);
+              const totalCash = gRows.reduce((s, r) => s + r.cashDown, 0);
+              const totalCpf = gRows.reduce((s, r) => s + r.cpfUsed, 0);
+              const totalLoan = gRows.reduce((s, r) => s + r.loanDrawn, 0);
+              const totalPct = gRows.reduce((s, r) => s + r.pct, 0);
+              const fromAt = gRows[0].at;
+              const toAt = gRows[gRows.length - 1].at;
+
+              return (
+                <div key={group.label} style={{ borderRadius: 10, overflow: "hidden", border: `1px solid var(--border-muted)` }}>
+                  {/* Group header */}
+                  <div style={{ padding: "10px 12px", background: group.bg, display: "flex", alignItems: "center", gap: 10, borderBottom: "1px solid var(--border-muted)" }}>
+                    <div style={{ width: 8, height: 8, borderRadius: 9999, background: group.color, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "var(--fg-default)" }}>{group.label}</span>
+                      <span style={{ fontSize: 11, color: "var(--fg-muted)", marginLeft: 6 }}>· {group.zh}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--fg-muted)", fontFamily: "var(--font-mono)", flexShrink: 0 }}>
+                      {fromAt === 0 ? "T0" : `+${fromAt}m`}{fromAt !== toAt ? `–+${toAt}m` : ""}
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, fontFamily: "var(--font-mono)", color: group.color, flexShrink: 0, marginLeft: 8 }}>
+                      ${Math.round(totalAmt/1000)}k <span style={{ fontSize: 10, fontWeight: 500, color: "var(--fg-muted)" }}>({totalPct}%)</span>
+                    </div>
+                  </div>
+                  {/* Group summary row */}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0, padding: "8px 12px 8px", background: "var(--bg-default)", borderBottom: "1px solid var(--border-muted)" }}>
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Cash</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, fontFamily: "var(--font-mono)" }}>${Math.round(totalCash/1000)}k</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>CPF</div>
+                      <div style={{ fontSize: 12, fontWeight: 600, fontFamily: "var(--font-mono)", color: totalCpf > 0 ? "#2B873F" : "var(--fg-muted)" }}>
+                        {totalCpf > 0 ? `$${Math.round(totalCpf/1000)}k` : "—"}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Bank loan</div>
+                      <div style={{ fontSize: 12, fontFamily: "var(--font-mono)", color: "var(--fg-muted)" }}>${Math.round(totalLoan/1000)}k</div>
+                    </div>
+                  </div>
+                  {/* Individual milestones */}
+                  {gRows.map((r, j) => (
+                    <div key={j} style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      padding: "8px 12px", background: "var(--bg-default)",
+                      borderTop: j > 0 ? "1px solid var(--border-muted)" : "none",
+                    }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: 12, fontWeight: 500, color: "var(--fg-default)" }}>{r.name}</span>
+                        <span style={{ fontSize: 11, color: "var(--fg-muted)", marginLeft: 6 }}>· {r.zh}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+                        <span style={{ fontSize: 11, color: "var(--fg-muted)", fontFamily: "var(--font-mono)" }}>{r.at === 0 ? "T0" : `+${r.at}m`}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, fontFamily: "var(--font-mono)", minWidth: 56, textAlign: "right" }}>${Math.round(r.amount/1000)}k</span>
+                        {r.interestOnly > 0 && (
+                          <span style={{ fontSize: 11, color: "#C85D00", fontFamily: "var(--font-mono)" }}>+${Math.round(r.interestOnly)}/mo</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
         </Card>
       </div>
     </div>
@@ -1908,7 +2128,6 @@ function CashflowChart({ rows, buildMonths }) {
           </text>
         </g>
       ))}
-      {/* TOP marker */}
       <line x1={x(buildMonths)} x2={x(buildMonths)} y1={padT} y2={padT+ih} stroke="#2B873F" strokeDasharray="2 3" />
       <text x={x(buildMonths)} y={H-6} textAnchor="middle" fontSize="9" fill="#2B873F" fontWeight="700">TOP</text>
       <path d={area} fill="rgba(55,101,246,0.14)" />
