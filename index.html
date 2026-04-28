@@ -28,6 +28,15 @@
 <script src="src/data.js"></script>
 <script src="src/liveData.js"></script>
 
+
+
+
+
+
+
+
+
+
 <script type="text/babel">
 /* global React */
 const { useState, useMemo, useEffect, useRef } = React;
@@ -962,8 +971,7 @@ window.PredictionChart = PredictionChart;
 /* global React, Card, Tag, Icon, Button, Stub, Input, PROJECTS */
 const { useState: useStateList, useMemo: useMemoList } = React;
 
-function ProjectsList({ lang, mode, onOpenProject }) {
-  // mode: "launched" or "upcoming"
+function ProjectsList({ lang, mode, onOpenProject, isMobile = false }) {
   const [sort, setSort] = useStateList(mode === "launched" ? "forecast" : "score");
   const [filterRegion, setFilterRegion] = useStateList("all");
   const [filterTenure, setFilterTenure] = useStateList("all");
@@ -974,7 +982,6 @@ function ProjectsList({ lang, mode, onOpenProject }) {
     if (filterRegion !== "all") arr = arr.filter(p => p.region === filterRegion);
     if (filterTenure !== "all") arr = arr.filter(p => p.tenure.toLowerCase().includes(filterTenure));
     if (q) arr = arr.filter(p => (p.name + p.zhName + p.district).toLowerCase().includes(q.toLowerCase()));
-
     arr = arr.slice().sort((a, b) => {
       if (sort === "forecast") return (b.predictedUplift?.[1] || 0) - (a.predictedUplift?.[1] || 0);
       if (sort === "score") return (b.entryScore || 0) - (a.entryScore || 0);
@@ -987,29 +994,32 @@ function ProjectsList({ lang, mode, onOpenProject }) {
   }, [mode, sort, filterRegion, filterTenure, q]);
 
   return (
-    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ padding: isMobile ? 12 : 24, display: "flex", flexDirection: "column", gap: isMobile ? 10 : 16 }}>
       {/* Filter bar */}
-      <Card pad={16} radius={12}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <Input icon="search" placeholder="Filter by name · 按名称筛选" value={q} onChange={e => setQ(e.target.value)} style={{ width: 280 }} />
-          <Select label="Region · 区域" value={filterRegion} onChange={setFilterRegion} options={[
-            { v: "all", l: "All regions" }, { v: "OCR East", l: "OCR East · 东" },
-            { v: "OCR West", l: "OCR West · 西" }, { v: "RCR", l: "RCR · 其他中央" }, { v: "CCR", l: "CCR · 核心中央" },
-          ]} />
-          <Select label="Tenure · 地契" value={filterTenure} onChange={setFilterTenure} options={[
-            { v: "all", l: "All" }, { v: "99", l: "99-year · 99年" }, { v: "freehold", l: "Freehold · 永久" },
-          ]} />
-          <div style={{ flex: 1 }} />
-          <Select label="Sort · 排序" value={sort} onChange={setSort} options={mode === "launched" ? [
-            { v: "forecast", l: "Forecast uplift · 预测涨幅" },
-            { v: "psf-low", l: "PSF low → high" },
-            { v: "psf-high", l: "PSF high → low" },
-            { v: "top-date", l: "TOP date" },
-          ] : [
-            { v: "score", l: "Entry score · 入场指数" },
-            { v: "psf-low", l: "Fair PSF low → high" },
-            { v: "top-date", l: "TOP date" },
-          ]} />
+      <Card pad={isMobile ? 12 : 16} radius={12}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <Input icon="search" placeholder="Filter by name · 按名称筛选" value={q} onChange={e => setQ(e.target.value)} style={{ width: "100%" }} />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <Select label="Region · 区域" value={filterRegion} onChange={setFilterRegion} options={[
+              { v: "all", l: "All regions" }, { v: "OCR East", l: "OCR East" },
+              { v: "OCR West", l: "OCR West" }, { v: "OCR North", l: "OCR North" },
+              { v: "OCR North-East", l: "OCR NE" }, { v: "RCR", l: "RCR" }, { v: "CCR", l: "CCR" },
+            ]} />
+            <Select label="Tenure · 地契" value={filterTenure} onChange={setFilterTenure} options={[
+              { v: "all", l: "All" }, { v: "99", l: "99-yr" }, { v: "freehold", l: "Freehold" },
+            ]} />
+            <div style={{ flex: 1 }} />
+            <Select label="Sort · 排序" value={sort} onChange={setSort} options={mode === "launched" ? [
+              { v: "forecast", l: "Forecast uplift" },
+              { v: "psf-low", l: "PSF ↑" },
+              { v: "psf-high", l: "PSF ↓" },
+              { v: "top-date", l: "TOP date" },
+            ] : [
+              { v: "score", l: "Entry score" },
+              { v: "psf-low", l: "Fair PSF ↑" },
+              { v: "top-date", l: "TOP date" },
+            ]} />
+          </div>
         </div>
       </Card>
 
@@ -1017,37 +1027,141 @@ function ProjectsList({ lang, mode, onOpenProject }) {
         {list.length} projects · {mode === "launched" ? "已开盘" : "待开盘"}
       </div>
 
-      {/* Table */}
-      <Card pad={0} radius={16} style={{ overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead>
-            <tr style={{ background: "var(--gray-10)", textAlign: "left" }}>
-              {(mode === "launched" ? [
-                "Project · 项目", "Region", "TOP", "Units", "Avg PSF", "Day-1 %", "Fair range", "Forecast", "Verdict", ""
-              ] : [
-                "Project · 项目", "Region", "Developer", "Preview", "TOP", "Units", "Land PSF", "Fair PSF", "Entry", ""
-              ]).map((h, i) => (
-                <th key={i} style={{ padding: "10px 14px", fontSize: 10, fontWeight: 700, color: "var(--fg-muted)", letterSpacing: "0.08em", textTransform: "uppercase", borderBottom: "1px solid var(--border-muted)" }}>{h}</th>
+      {isMobile ? (
+        /* ── Mobile card list ── */
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {list.map(p => mode === "launched" ? (
+            <LaunchedCard key={p.id} p={p} lang={lang} onOpen={() => onOpenProject(p.id)} />
+          ) : (
+            <UpcomingCard key={p.id} p={p} lang={lang} onOpen={() => onOpenProject(p.id)} />
+          ))}
+        </div>
+      ) : (
+        /* ── Desktop table ── */
+        <Card pad={0} radius={16} style={{ overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: "var(--gray-10)", textAlign: "left" }}>
+                {(mode === "launched" ? [
+                  "Project · 项目", "Region", "TOP", "Units", "Avg PSF", "Day-1 %", "Fair range", "Forecast", "Verdict", ""
+                ] : [
+                  "Project · 项目", "Region", "Developer", "Preview", "TOP", "Units", "Land PSF", "Fair PSF", "Entry", ""
+                ]).map((h, i) => (
+                  <th key={i} style={{ padding: "10px 14px", fontSize: 10, fontWeight: 700, color: "var(--fg-muted)", letterSpacing: "0.08em", textTransform: "uppercase", borderBottom: "1px solid var(--border-muted)" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {list.map(p => mode === "launched" ? (
+                <LaunchedRow key={p.id} p={p} lang={lang} onOpen={() => onOpenProject(p.id)} />
+              ) : (
+                <UpcomingRow key={p.id} p={p} lang={lang} onOpen={() => onOpenProject(p.id)} />
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {list.map(p => mode === "launched" ? (
-              <LaunchedRow key={p.id} p={p} lang={lang} onOpen={() => onOpenProject(p.id)} />
-            ) : (
-              <UpcomingRow key={p.id} p={p} lang={lang} onOpen={() => onOpenProject(p.id)} />
-            ))}
-          </tbody>
-        </table>
-      </Card>
+            </tbody>
+          </table>
+        </Card>
+      )}
     </div>
   );
 }
 
+/* ── Mobile cards ── */
+function LaunchedCard({ p, lang, onOpen }) {
+  const tone = p.verdict === "outperform" ? "success" : p.verdict === "neutral" ? "warning" : "info";
+  const upliftColor = p.verdict === "outperform" ? "#2B873F" : p.verdict === "neutral" ? "#C85D00" : "var(--fg-muted)";
+  return (
+    <div onClick={onOpen} style={{
+      background: "var(--bg-default)", border: "1px solid var(--border-muted-card)",
+      borderRadius: 14, padding: "14px 16px", cursor: "pointer",
+      display: "flex", flexDirection: "column", gap: 10,
+      boxShadow: "var(--shadow-xs)",
+    }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+        <Stub w={40} h={40} label="IMG" style={{ borderRadius: 8, flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: "var(--fg-default)", lineHeight: 1.2 }}>{p.name}</div>
+          {lang === "both" && <div style={{ fontSize: 11, color: "var(--fg-muted)", marginTop: 1 }}>{p.zhName}</div>}
+          <div style={{ fontSize: 11, color: "var(--fg-muted)", marginTop: 2 }}>{p.district} · TOP {p.topDate}</div>
+        </div>
+        <Icon name="chevron-right" size={16} color="var(--fg-muted)" style={{ flexShrink: 0, marginTop: 2 }} />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 600, color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Avg PSF</div>
+          <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--font-mono)", marginTop: 2 }}>${p.avgPsf?.toLocaleString()}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 600, color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Day-1</div>
+          <div style={{ marginTop: 4 }}>
+            <div style={{ height: 4, background: "var(--gray-20)", borderRadius: 9999, overflow: "hidden", marginBottom: 3 }}>
+              <div style={{ width: `${p.day1Sold}%`, height: "100%", background: p.day1Sold > 60 ? "#70FC8E" : p.day1Sold > 40 ? "#FF902E" : "#FF5252" }} />
+            </div>
+            <span style={{ fontSize: 12, fontWeight: 700, fontFamily: "var(--font-mono)" }}>{p.day1Sold}%</span>
+          </div>
+        </div>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 600, color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Forecast</div>
+          <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--font-mono)", color: upliftColor, marginTop: 2 }}>+{p.predictedUplift?.[0]}–{p.predictedUplift?.[1]}%</div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <Tag tone={tone}>{p.verdictLabel}</Tag>
+        <span style={{ fontSize: 11, color: "var(--fg-muted)", fontFamily: "var(--font-mono)" }}>${p.fairPsf?.[0]}–{p.fairPsf?.[1]}</span>
+      </div>
+    </div>
+  );
+}
+
+function UpcomingCard({ p, lang, onOpen }) {
+  const scoreColor = (p.entryScore || 0) >= 80 ? "#2B873F" : (p.entryScore || 0) >= 65 ? "#3765F6" : "#C85D00";
+  const tone = (p.entryScore || 0) >= 80 ? "success" : (p.entryScore || 0) >= 65 ? "info" : "warning";
+  return (
+    <div onClick={onOpen} style={{
+      background: "var(--bg-default)", border: "1px solid var(--border-muted-card)",
+      borderRadius: 14, padding: "14px 16px", cursor: "pointer",
+      display: "flex", flexDirection: "column", gap: 10,
+      boxShadow: "var(--shadow-xs)",
+    }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+        <Stub w={40} h={40} label="PLOT" style={{ borderRadius: 8, flexShrink: 0 }} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: "var(--fg-default)", lineHeight: 1.2 }}>{p.name}</div>
+          {lang === "both" && <div style={{ fontSize: 11, color: "var(--fg-muted)", marginTop: 1 }}>{p.zhName}</div>}
+          <div style={{ fontSize: 11, color: "var(--fg-muted)", marginTop: 2 }}>{p.district} · {p.tenure}</div>
+        </div>
+        <Icon name="chevron-right" size={16} color="var(--fg-muted)" style={{ flexShrink: 0, marginTop: 2 }} />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 600, color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Fair PSF</div>
+          <div style={{ fontSize: 13, fontWeight: 700, fontFamily: "var(--font-mono)", marginTop: 2 }}>${p.fairPsf?.[0]}–{p.fairPsf?.[1]}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 600, color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Preview</div>
+          <div style={{ fontSize: 12, color: "var(--fg-default)", marginTop: 2, lineHeight: 1.3 }}>{p.launchDate?.replace("Preview ", "")}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 600, color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>Entry</div>
+          <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--font-mono)", color: scoreColor, marginTop: 2 }}>{p.entryScore ?? "—"}</div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <Tag tone={tone}>{p.verdictLabel}</Tag>
+        <span style={{ fontSize: 11, color: "var(--fg-muted)" }}>{p.units} units · TOP {p.topDate}</span>
+      </div>
+    </div>
+  );
+}
+
+/* ── Desktop table rows (unchanged) ── */
 function Select({ label, value, onChange, options }) {
   return (
-    <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--fg-muted)" }}>
-      <span style={{ fontWeight: 600 }}>{label}</span>
+    <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--fg-muted)" }}>
+      <span style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{label}</span>
       <select value={value} onChange={e => onChange(e.target.value)} style={{
         padding: "7px 10px", border: "1px solid var(--border-muted-input)", borderRadius: 8,
         fontSize: 12, fontFamily: "var(--font-sans)", background: "var(--bg-default)", color: "var(--fg-default)",
